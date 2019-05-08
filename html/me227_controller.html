@@ -1,0 +1,414 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>me227_controller</title><meta name="generator" content="MATLAB 9.6"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2019-05-06"><meta name="DC.source" content="me227_controller.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">function</span> [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
+
+    <span class="comment">%ME227 Controller:</span>
+    <span class="comment">% Spring 2019</span>
+    <span class="comment">% Prof. Chris Gerdes &amp; CAs Nathan Spielberg, John Alsterda</span>
+    <span class="comment">%</span>
+    <span class="comment">% Here you should use the inputs from above to calculate the inputs to the</span>
+    <span class="comment">% vehicle. These will be delta and Fx and will be determined based upon</span>
+    <span class="comment">% your control laws below.</span>
+    <span class="comment">%</span>
+    <span class="comment">% For the project you wil use this same input output structure and in this</span>
+    <span class="comment">% homework you will use this control structure for defining the control</span>
+    <span class="comment">% inputs in your simulation.</span>
+
+    <span class="keyword">if</span>(s&lt;0 || isnan(s)) <span class="comment">%remove this for actual car</span>
+        s = 0;
+    <span class="keyword">end</span>
+
+    <span class="comment">% Define your vehicle parameters here (you must define all of your</span>
+    <span class="comment">% parameters here, you may not reference and outside function in order to</span>
+    <span class="comment">% function on the GTI)</span>
+    Caf_lin = 80000;
+    Car_lin = 120000;
+    b = 1.367;
+    a = 1.264;
+    m = 1926.2;
+    L = a + b;
+    K_steer = m/L*(b*Car_lin - a*Caf_lin)/(Caf_lin*Car_lin);
+    Iz = 2763.49;
+
+    <span class="comment">%Controller saturation values</span>
+    Fx_MAX = 10000;
+    delta_MAX = 40*(3.14159/180);
+
+    <span class="comment">% Define your controller parameters here:</span>
+    <span class="comment">%lookahead controller (feedback only)</span>
+    K_la = 3500; <span class="comment">%default is 3500</span>
+    x_la = 18; <span class="comment">%default 15</span>
+
+    <span class="comment">%drive (longitudinal) controller gain</span>
+    K_drive = m*0.1*9.81/1;
+    frr = 0.015; <span class="comment">%rolling friction constant</span>
+    C_DA = 0.594; <span class="comment">%coefficient of drag X surface area</span>
+    rho = 1.225; <span class="comment">%density of air</span>
+
+    g = 9.81;
+
+    <span class="comment">%PID Control Terms</span>
+    <span class="keyword">persistent</span> e_prev; e_prev = 0;
+    <span class="keyword">persistent</span> dpsi_prev; dpsi_prev = 0;
+    <span class="keyword">persistent</span> e_integrated; e_integrated = 0;
+    <span class="keyword">persistent</span> dpsi_integrated; dpsi_integrated = 0;
+
+    <span class="keyword">persistent</span> delta_prev; delta_prev = 0;
+    <span class="keyword">persistent</span> Fx_prev; Fx_prev = 0;
+
+    Kp_e = K_la/Caf_lin; Kp_dpsi = K_la*x_la/Caf_lin;
+    Kd_e = 0.01; Kd_dpsi = 0.01;
+    Ki_e = 0.05; Ki_dpsi = 0.05;
+
+    dt = 0.005; <span class="comment">%controller operates at 200Hz</span>
+
+
+
+    <span class="comment">%%%%%----------END STUDENT CODE----------%%%%%%</span>
+
+    <span class="comment">%Find Uxdesired for the current distance along the path via interpolation</span>
+    uxdes = interp1(path.s_m, path.UxDes, s);
+    axdes = interp1(path.s_m, path.axDes, s);
+
+    <span class="comment">%Find Curvature for the current distance along the path via interpolation</span>
+    K = interp1(path.s_m, path.k_1pm, s);
+
+    <span class="comment">%%%%%----------START STUDENT CODE----------%%%%%%</span>
+
+    <span class="comment">% Use the Lateral Control Law to Calculate Delta</span>
+    <span class="keyword">if</span> Mode == 1
+        <span class="comment">% Calculate the feedback steering command with lateral error and heading error</span>
+        delta = -K_la*(e + x_la*dpsi)/Caf_lin;
+
+    <span class="keyword">elseif</span> Mode == 2
+        dpsi_ss = K*(m*a*ux^2/L/Car_lin-b);
+        deltaff = K_la*x_la/Caf_lin*dpsi_ss + K*(L+K_steer*ux^2);
+        delta = -K_la*(e + x_la*dpsi)/Caf_lin + deltaff;
+
+    <span class="keyword">elseif</span> Mode == 3
+
+        <span class="comment">%find derivative</span>
+        e_deriv = (e-e_prev)/dt;
+        dpsi_deriv = (dpsi-dpsi_prev)/dt;
+
+        <span class="comment">%sum of errors (integral term)</span>
+        e_integrated = e_integrated + e;
+        dpsi_integrated = dpsi_integrated + dpsi;
+
+        <span class="comment">%anti-windup</span>
+        e_integrated = sat(e_integrated,100);
+        dpsi_integrated = sat(dpsi_integrated,100);
+
+        <span class="comment">%feedforward</span>
+        dpsi_ss = K*(m*a*ux^2/L/Car_lin-b);
+        deltaff = K_la*x_la/Caf_lin*dpsi_ss + K*(L+K_steer*ux^2);
+
+        delta = -[Kp_e Kp_dpsi]*[e;dpsi] -[Kd_e Kd_dpsi]*[e_deriv;dpsi_deriv] <span class="keyword">...</span>
+            - [Ki_e Ki_dpsi]*[e_integrated;dpsi_integrated] + deltaff;
+
+        <span class="comment">%store as previous value before going into next call</span>
+        e_prev = e;
+        dpsi_prev = dpsi;
+
+    <span class="keyword">else</span> <span class="comment">%LQR</span>
+        e_deriv = (e-e_prev)/dt;
+        dpsi_deriv = (dpsi-dpsi_prev)/dt;
+        x_lqr = [e;e_deriv;dpsi;dpsi_deriv];
+        K_lqr = get_K_lqr();
+        delta = -K_lqr*x_lqr    ;
+
+    <span class="keyword">end</span>
+
+    <span class="comment">%put low pass on delta</span>
+    low_pass = [0.7 0.96 0.8 0.02];
+    delta = delta_prev + low_pass(Mode)*( delta - delta_prev ); <span class="comment">%low pass</span>
+    delta_prev = delta;
+
+    <span class="comment">% Use the Longitudinal Control Law to Calcuate Fx</span>
+
+    <span class="comment">%Fx = K_drive*(uxdes - ux); %without drag and rollfriction compensation</span>
+    Fx = m*axdes + frr*m*g + 0.5*C_DA*(ux^2) + K_drive*(uxdes - ux); <span class="comment">%with drag and rollfriction compensation</span>
+    <span class="keyword">if</span>(abs(uxdes) &lt; 0.01)
+        Fx = 0;
+    <span class="keyword">end</span>
+
+    <span class="comment">%saturate the control inputs</span>
+    Fx = sat(Fx,Fx_MAX);
+    delta = sat(delta,delta_MAX);
+
+
+    <span class="comment">%saturationg function</span>
+    <span class="keyword">function</span> y = sat(x,c)
+        <span class="keyword">if</span>(abs(x)&gt;c)
+            y = c*sign(x);
+        <span class="keyword">else</span>
+            y = x;
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="keyword">function</span> K_lqr = get_K_lqr()
+
+        A = [0 1 0 0;<span class="keyword">...</span>
+            0 -(Caf_lin+Car_lin)/m/ux (Caf_lin+Car_lin)/m (-a*Caf_lin+b*Car_lin)/m/ux;<span class="keyword">...</span>
+            0 0 0 1;<span class="keyword">...</span>
+            0 (b*Car_lin - a*Caf_lin)/m/Iz (a*Caf_lin-b*Car_lin)/Iz -(a^2*Caf_lin + b^2*Car_lin)/Iz/ux];
+        B = ones(4,1);
+
+        Q = diag([100 10000 100 10000]);
+        R = 3000;
+        N = 0;
+
+        A(isinf(A)) = 100000000;
+        A(isnan(A)) = 0;
+
+        K_lqr = lqr(A,B,Q,R,N);
+
+    <span class="keyword">end</span>
+
+
+<span class="comment">%%%%%----------END STUDENT CODE----------%%%%%%</span>
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Not enough input arguments.
+
+Error in me227_controller (line 15)
+    if(s&lt;0 || isnan(s)) %remove this for actual car
+</pre><p class="footer"><br><a href="https://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2019a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
+    
+    %ME227 Controller:
+    % Spring 2019
+    % Prof. Chris Gerdes & CAs Nathan Spielberg, John Alsterda
+    % 
+    % Here you should use the inputs from above to calculate the inputs to the
+    % vehicle. These will be delta and Fx and will be determined based upon
+    % your control laws below. 
+    %
+    % For the project you wil use this same input output structure and in this
+    % homework you will use this control structure for defining the control
+    % inputs in your simulation. 
+    
+    if(s<0 || isnan(s)) %remove this for actual car
+        s = 0;
+    end
+
+    % Define your vehicle parameters here (you must define all of your
+    % parameters here, you may not reference and outside function in order to 
+    % function on the GTI)
+    Caf_lin = 80000;
+    Car_lin = 120000;
+    b = 1.367;
+    a = 1.264;
+    m = 1926.2; 
+    L = a + b;
+    K_steer = m/L*(b*Car_lin - a*Caf_lin)/(Caf_lin*Car_lin);
+    Iz = 2763.49;
+
+    %Controller saturation values
+    Fx_MAX = 10000;
+    delta_MAX = 40*(3.14159/180);
+
+    % Define your controller parameters here:
+    %lookahead controller (feedback only)
+    K_la = 3500; %default is 3500
+    x_la = 18; %default 15
+
+    %drive (longitudinal) controller gain
+    K_drive = m*0.1*9.81/1;
+    frr = 0.015; %rolling friction constant
+    C_DA = 0.594; %coefficient of drag X surface area
+    rho = 1.225; %density of air
+
+    g = 9.81;
+
+    %PID Control Terms
+    persistent e_prev; e_prev = 0;
+    persistent dpsi_prev; dpsi_prev = 0;
+    persistent e_integrated; e_integrated = 0;
+    persistent dpsi_integrated; dpsi_integrated = 0;
+    
+    persistent delta_prev; delta_prev = 0;
+    persistent Fx_prev; Fx_prev = 0;
+
+    Kp_e = K_la/Caf_lin; Kp_dpsi = K_la*x_la/Caf_lin;
+    Kd_e = 0.01; Kd_dpsi = 0.01;
+    Ki_e = 0.05; Ki_dpsi = 0.05;
+
+    dt = 0.005; %controller operates at 200Hz
+
+
+
+    %%%%%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHEND STUDENT CODEREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH%%%%%%
+
+    %Find Uxdesired for the current distance along the path via interpolation
+    uxdes = interp1(path.s_m, path.UxDes, s);
+    axdes = interp1(path.s_m, path.axDes, s);
+
+    %Find Curvature for the current distance along the path via interpolation
+    K = interp1(path.s_m, path.k_1pm, s);
+
+    %%%%%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHSTART STUDENT CODEREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH%%%%%%
+
+    % Use the Lateral Control Law to Calculate Delta
+    if Mode == 1
+        % Calculate the feedback steering command with lateral error and heading error
+        delta = -K_la*(e + x_la*dpsi)/Caf_lin;
+
+    elseif Mode == 2
+        dpsi_ss = K*(m*a*ux^2/L/Car_lin-b);
+        deltaff = K_la*x_la/Caf_lin*dpsi_ss + K*(L+K_steer*ux^2);
+        delta = -K_la*(e + x_la*dpsi)/Caf_lin + deltaff;
+
+    elseif Mode == 3
+
+        %find derivative 
+        e_deriv = (e-e_prev)/dt;
+        dpsi_deriv = (dpsi-dpsi_prev)/dt;
+
+        %sum of errors (integral term)
+        e_integrated = e_integrated + e;
+        dpsi_integrated = dpsi_integrated + dpsi;
+    
+        %anti-windup
+        e_integrated = sat(e_integrated,100);
+        dpsi_integrated = sat(dpsi_integrated,100);
+
+        %feedforward
+        dpsi_ss = K*(m*a*ux^2/L/Car_lin-b);
+        deltaff = K_la*x_la/Caf_lin*dpsi_ss + K*(L+K_steer*ux^2);
+
+        delta = -[Kp_e Kp_dpsi]*[e;dpsi] -[Kd_e Kd_dpsi]*[e_deriv;dpsi_deriv] ...
+            - [Ki_e Ki_dpsi]*[e_integrated;dpsi_integrated] + deltaff;
+
+        %store as previous value before going into next call
+        e_prev = e;
+        dpsi_prev = dpsi;
+        
+    else %LQR
+        e_deriv = (e-e_prev)/dt;
+        dpsi_deriv = (dpsi-dpsi_prev)/dt;        
+        x_lqr = [e;e_deriv;dpsi;dpsi_deriv];
+        K_lqr = get_K_lqr();
+        delta = -K_lqr*x_lqr    ;
+        
+    end
+
+    %put low pass on delta
+    low_pass = [0.7 0.96 0.8 0.02];
+    delta = delta_prev + low_pass(Mode)*( delta - delta_prev ); %low pass
+    delta_prev = delta;
+    
+    % Use the Longitudinal Control Law to Calcuate Fx
+
+    %Fx = K_drive*(uxdes - ux); %without drag and rollfriction compensation
+    Fx = m*axdes + frr*m*g + 0.5*C_DA*(ux^2) + K_drive*(uxdes - ux); %with drag and rollfriction compensation
+    if(abs(uxdes) < 0.01)
+        Fx = 0;
+    end        
+
+    %saturate the control inputs
+    Fx = sat(Fx,Fx_MAX);
+    delta = sat(delta,delta_MAX);
+
+
+    %saturationg function
+    function y = sat(x,c)
+        if(abs(x)>c)
+            y = c*sign(x);
+        else
+            y = x;
+        end
+    end
+
+    function K_lqr = get_K_lqr()
+       
+        A = [0 1 0 0;...
+            0 -(Caf_lin+Car_lin)/m/ux (Caf_lin+Car_lin)/m (-a*Caf_lin+b*Car_lin)/m/ux;...
+            0 0 0 1;...
+            0 (b*Car_lin - a*Caf_lin)/m/Iz (a*Caf_lin-b*Car_lin)/Iz -(a^2*Caf_lin + b^2*Car_lin)/Iz/ux];
+        B = ones(4,1);
+        
+        Q = diag([100 10000 100 10000]);
+        R = 3000;
+        N = 0;
+        
+        A(isinf(A)) = 100000000;
+        A(isnan(A)) = 0;
+                
+        K_lqr = lqr(A,B,Q,R,N);
+        
+    end
+
+
+%%%%%REPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHEND STUDENT CODEREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASHREPLACE_WITH_DASH_DASH%%%%%%
+end
+
+
+##### SOURCE END #####
+--></body></html>
