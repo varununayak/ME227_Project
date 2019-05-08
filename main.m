@@ -9,10 +9,10 @@ clear all; clc; close all;
  %Mode = 1; % lookahead feedback only
  %Mode = 2; %lookahead feedback + feedforward
  Mode = 3; % PID 
- %Mode = 4; % Extended LQR
+%Mode = 4; % Extended LQR
  
- process_noise = false;
- sensor_noise = false;
+ process_noise = true;
+ sensor_noise = true;
  parameter_errors = false; %imports setupniki2 instead
  use_straight_path = false;
  
@@ -36,6 +36,7 @@ path.UxDes = Ux_des;
 path.axDes = ax_des;
 
 
+
 g = 9.81;                   	% gravity acceleration, meters/sec^2
 
 % vehicle parameters
@@ -46,7 +47,7 @@ else
 end
 
 % simulation time
-t_final = 36.5;
+t_final = 36.2;
 dt = 0.005;
 t_s = 0:dt:t_final;
 
@@ -61,6 +62,9 @@ e_m        = zeros(N,1);
 delta_rad   = zeros(N,1);
 
 ux_des_plot = zeros(N,1);
+
+delta_plot = zeros(N,1);
+Fx_plot = zeros(N,1);
 
 
 % set initial conditions
@@ -96,6 +100,9 @@ for idx = 1:N
         [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path);
     end
     
+    delta_plot(idx) = delta;
+    Fx_plot(idx) = Fx;
+    
     %Calculate the Dynamics with the Nonlinear Bike Model
     [ r_dot, uy_dot, ux_dot, s_dot, e_dot, dpsi_dot] = ...
             nonlinear_bicycle_model( r, uy, ux, dpsi, e, delta, Fx, K, veh, tire_f, tire_r, process_noise, parameter_errors  );
@@ -121,7 +128,7 @@ figure();
 hold on;
  
 
-subplot(2,1,1);
+subplot(3,1,1);
 plot(t_s, e_m)
 hold on; grid on;
 xlabel('Time [s]')
@@ -129,14 +136,14 @@ ylabel('e [m]')
 title('Lateral Error e ')
 
 
-subplot(2,1,2);
+subplot(3,1,2);
  plot(t_s, dpsi_rad)
  hold on; grid on;
  xlabel('Time [s]')
  ylabel('\Delta\psi [rad]')
  title('\Delta\psi');
 
-figure()
+subplot(3,1,3);
 plot(t_s,ux_des_plot, t_s, ux_mps )
 hold on; grid on;
 title("Desired Speed Tracking");
@@ -187,7 +194,13 @@ xlabel('Time [s]')
 ylabel('a_t[m/s2]')  
 legend('Actual','Limit');
 
-
+figure()
+subplot(2,1,1);
+plot(t_s, delta_plot);
+title("Steering Angle \delta");
+subplot(2,1,2);
+plot(t_s, Fx_plot);
+title("Tractive Force F_x");
 
 % Animation
 path.s = path.s_m;
@@ -259,11 +272,11 @@ e_dot = Uy*cos(dpsi) + Ux*sin(dpsi);
 dpsi_dot = r - K*s_dot;
 
 if(process_noise)
-    Ux_dot = Ux_dot + normrnd(0.2,0.01);
-    Uy_dot = Uy_dot + normrnd(-0.2,0.01);
-    r_dot = r_dot + normrnd(0.2,0.01);
-    e_dot = e_dot + normrnd(-0.2,0.01);
-    dpsi_dot = dpsi_dot + normrnd(0.2,0.01);
+    Ux_dot = Ux_dot + normrnd(0,0.01);
+    Uy_dot = Uy_dot + normrnd(0,0.01);
+    r_dot = r_dot + normrnd(0,0.01);
+    e_dot = e_dot + normrnd(0,0.01);
+    dpsi_dot = dpsi_dot + normrnd(0,0.01);
 end
 
 %%%%% END STUDENT CODE %%%%%
@@ -294,10 +307,10 @@ end
 function [ s_noisy, e_noisy, dpsi_noisy, ux_noisy, uy_noisy, r_noisy ] = add_sensor_noise( s, e, dpsi, ux, uy, r)
     
     s_noisy = s;
-    e_noisy = e + normrnd(0.1,0.01);
-    dpsi_noisy = dpsi + normrnd(0.06,0.01);
-    ux_noisy = ux + normrnd(-1.0,0.01);
-    uy_noisy = uy + normrnd(0.4,0.01);
-    r_noisy = r + normrnd(0.2,0.01);
+    e_noisy = e + normrnd(0.00,0.01);
+    dpsi_noisy = dpsi + normrnd(0.00,0.01);
+    ux_noisy = ux + normrnd(0,0.01);
+    uy_noisy = uy + normrnd(0,0.01);
+    r_noisy = r + normrnd(0,0.01);
     
 end

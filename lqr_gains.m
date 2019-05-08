@@ -9,12 +9,6 @@ L = a + b;
 K_steer = m/L*(b*Car_lin - a*Caf_lin)/(Caf_lin*Car_lin);
 Iz = 2763.49;
 
-B = ones(4,1);
-
-Q = diag([1 100 100 100]);
-R = 30;
-N = 0;
-        
 
 
 Num = 200;
@@ -37,7 +31,7 @@ for i = 1:Num
         0 (b*Car_lin - a*Caf_lin)/m/Iz (a*Caf_lin-b*Car_lin)/Iz -(a^2*Caf_lin + b^2*Car_lin)/Iz/ux];
     B = ones(4,1);
 
-    Q = diag([1 10 1 10]);
+    Q = diag([1 10 0.01 10]);
     R = 1;
     N = 0;
 
