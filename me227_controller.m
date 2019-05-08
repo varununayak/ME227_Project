@@ -29,7 +29,7 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     Iz = 2763.49;
 
     %Controller saturation values
-    Fx_MAX = 10000;
+    Fx_MAX = 15000;
     delta_MAX = 50*(3.14159/180);
 
     % Define your controller parameters here:
@@ -38,7 +38,7 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     x_la = 18; %default 15
 
     %drive (longitudinal) controller gain
-    K_drive = m*0.1*9.81/1;
+    K_drive = 1200; %default is 1890
     frr = 0.015; %rolling friction constant
     C_DA = 0.594; %coefficient of drag X surface area
     rho = 1.225; %density of air
@@ -51,11 +51,11 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     persistent e_integrated; e_integrated = 0;
     persistent dpsi_integrated; dpsi_integrated = 0;
     
-    persistent delta_prev; delta_prev = 0;
+    %persistent delta_prev; delta_prev = 0; %remove low pass
     persistent Fx_prev; Fx_prev = 0;
 
     Kp_e = K_la/Caf_lin; Kp_dpsi = K_la*x_la/Caf_lin;
-    Kd_e = 0.01; Kd_dpsi = 0.01;
+    Kd_e = 0.01; Kd_dpsi = 0.005;
     Ki_e = 0.05; Ki_dpsi = 0.05;
 
     dt = 0.005; %controller operates at 200Hz
@@ -84,9 +84,12 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
 
     elseif Mode == 3
 
-        %find derivative 
-        e_deriv = (e-e_prev)/dt;
-        dpsi_deriv = (dpsi-dpsi_prev)/dt;
+        %find derivative
+        %e_deriv = (e - e_prev)/dt; %numerical derivative
+        e_deriv = ux*sin(dpsi) + uy*cos(dpsi); %using model
+        s_dot = (1/1-e*K)*(ux*cos(dpsi) - uy*sin(dpsi));
+        %dpsi_deriv = (dpsi-dpsi_prev)/dt; %using numerical derivative
+        dpsi_deriv = r - K*s_dot; %using model
 
         %sum of errors (integral term)
         e_integrated = e_integrated + e;
@@ -116,23 +119,21 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
         
     end
 
-    %put low pass on delta
-    low_pass = [0.7 0.96 0.8 0.02];
-    delta = delta_prev + low_pass(Mode)*( delta - delta_prev ); %low pass
-    delta_prev = delta;
+    %put low pass on delta - (REMOVED)
+    %low_pass = [0.7 0.96 0.8 0.02];
+    %delta = delta_prev + low_pass(Mode)*( delta - delta_prev ); %low pass
+    %delta_prev = delta;
     
     % Use the Longitudinal Control Law to Calcuate Fx
 
-    %Fx = K_drive*(uxdes - ux); %without drag and rollfriction compensation
     Fx = m*axdes + frr*m*g + 0.5*C_DA*(ux^2) + K_drive*(uxdes - ux); %with drag and rollfriction compensation   
         
-    
-    
-    %saturate the control inputs
+        
+    %saturate the control inputs takes care of Inf
     Fx = sat(Fx,Fx_MAX);
     delta = sat(delta,delta_MAX);
     
-    
+    %isnan check
     if(isnan(delta))
         delta = 0;
     end
@@ -140,6 +141,9 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
         Fx = 0;
     end
 
+    
+   %%%%%%%%% HELPER FUNCTIONS %%%%%%%%%%%%
+   
     %saturationg function
     function y = sat(x,c)
         if(abs(x)>c)
@@ -165,7 +169,6 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
         A(isnan(A)) = 0;
         %K_lqr = [1 0.8 2.12 0.1]; %mean LQR
         K_lqr = [1 ux/10 ux ux/40];    %extended LQR
-        %K_lqr = lqr(A,B,Q,R,N);
         
     end
 

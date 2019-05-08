@@ -11,7 +11,7 @@ clear all; clc; close all;
  Mode = 3; % PID 
  %Mode = 4; % Extended LQR
  
- process_noise = true;
+ process_noise = false;
  sensor_noise = false;
  parameter_errors = false; %imports setupniki2 instead
  use_straight_path = false;
@@ -33,8 +33,6 @@ end
 %load desired speed and acceleration info
 load('desired.mat');
 path.UxDes = Ux_des;
-ax_des(1) = ax_des(2);
-ax_des(996:1009) = 0;
 path.axDes = ax_des;
 
 
@@ -48,7 +46,7 @@ else
 end
 
 % simulation time
-t_final = 44;
+t_final = 36.5;
 dt = 0.005;
 t_s = 0:dt:t_final;
 
@@ -253,7 +251,7 @@ end
 
 % dynamics
 Ux_dot = ( Fxr + Fxf*cos(delta) - Fyf*sin(delta) + veh.m*Uy*r )/veh.m;
-Ux_dot = Ux_dot + ( -frr*veh.m*g - 0.5*rho*C_DA*(Ux^2) )/veh.m  + g*sin(5*3.14/180) ;    %added the rolling friction and the drag terms
+Ux_dot = Ux_dot + ( -frr*veh.m*g - 0.5*rho*C_DA*(Ux^2) )/veh.m;    %added the rolling friction and the drag terms
 Uy_dot = ( Fyf*cos(delta) + Fyr + Fxf*sin(delta) - veh.m*r*Ux ) / veh.m;
 r_dot = ( veh.a*Fyf*cos(delta) + veh.a*Fxf*sin(delta) - veh.b*Fyr) / veh.Iz;
 s_dot = (1/(1-e*K))*(Ux*cos(dpsi) - Uy*sin(dpsi) );
