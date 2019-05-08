@@ -12,25 +12,26 @@ clear all; clc; close all;
  %Mode = 4; % Extended LQR
  
  process_noise = true;
- sensor_noise = true;
- parameter_errors = false;
-
+ sensor_noise = false;
+ parameter_errors = false; %imports setupniki2 instead
+ use_straight_path = false;
+ 
 %%%CHOOSE EITHER STRAIGHT PATH OR PROJECT PATH%% 
 
 % STRAIGHT path information
-% init = [0;0;0];
-% %straight  path
-% s = [0     249];
-% k = [0     0];
-% % integrate s and k to get path
-% path = integrate_path(s,k,init);
+if(use_straight_path)
+    init = [0;0;0];
+    s = [0     249];
+    k = [0     0];
+    % integrate s and k to get path
+    path = integrate_path(s,k,init);
+else
+    
+    load('project_data.mat') %load the path file
+end
 
-% 
-% %PROJECT PATH information
-load('project_data.mat') %load the path file
-% % 
-% 
- load('desired.mat');
+%load desired speed and acceleration info
+load('desired.mat');
 path.UxDes = Ux_des;
 ax_des(1) = ax_des(2);
 ax_des(996:1009) = 0;
@@ -40,7 +41,11 @@ path.axDes = ax_des;
 g = 9.81;                   	% gravity acceleration, meters/sec^2
 
 % vehicle parameters
-setup_niki;
+if(parameter_errors)
+  setup_niki2;
+else
+   setup_niki;
+end
 
 % simulation time
 t_final = 44;
@@ -248,7 +253,7 @@ end
 
 % dynamics
 Ux_dot = ( Fxr + Fxf*cos(delta) - Fyf*sin(delta) + veh.m*Uy*r )/veh.m;
-Ux_dot = Ux_dot + ( -frr*veh.m*g - 0.5*rho*C_DA*(Ux^2) )/veh.m  ;    %added the rolling friction and the drag terms
+Ux_dot = Ux_dot + ( -frr*veh.m*g - 0.5*rho*C_DA*(Ux^2) )/veh.m  + g*sin(5*3.14/180) ;    %added the rolling friction and the drag terms
 Uy_dot = ( Fyf*cos(delta) + Fyr + Fxf*sin(delta) - veh.m*r*Ux ) / veh.m;
 r_dot = ( veh.a*Fyf*cos(delta) + veh.a*Fxf*sin(delta) - veh.b*Fyr) / veh.Iz;
 s_dot = (1/(1-e*K))*(Ux*cos(dpsi) - Uy*sin(dpsi) );
@@ -256,11 +261,11 @@ e_dot = Uy*cos(dpsi) + Ux*sin(dpsi);
 dpsi_dot = r - K*s_dot;
 
 if(process_noise)
-    Ux_dot = Ux_dot + normrnd(0.1,0.005);
-    Uy_dot = Uy_dot + normrnd(-0.1,0.005);
-    r_dot = r_dot + normrnd(0.1,0.005);
-    e_dot = e_dot + normrnd(-0.1,0.005);
-    dpsi_dot = dpsi_dot + normrnd(0.1,0.005);
+    Ux_dot = Ux_dot + normrnd(0.2,0.01);
+    Uy_dot = Uy_dot + normrnd(-0.2,0.01);
+    r_dot = r_dot + normrnd(0.2,0.01);
+    e_dot = e_dot + normrnd(-0.2,0.01);
+    dpsi_dot = dpsi_dot + normrnd(0.2,0.01);
 end
 
 %%%%% END STUDENT CODE %%%%%
@@ -291,10 +296,10 @@ end
 function [ s_noisy, e_noisy, dpsi_noisy, ux_noisy, uy_noisy, r_noisy ] = add_sensor_noise( s, e, dpsi, ux, uy, r)
     
     s_noisy = s;
-    e_noisy = e + normrnd(0.05,0.005);
-    dpsi_noisy = dpsi + normrnd(0.03,0.005);
-    ux_noisy = ux + normrnd(-0.5,0.005);
-    uy_noisy = uy + normrnd(0.2,0.005);
-    r_noisy = r + normrnd(0.1,0.005);
+    e_noisy = e + normrnd(0.1,0.01);
+    dpsi_noisy = dpsi + normrnd(0.06,0.01);
+    ux_noisy = ux + normrnd(-1.0,0.01);
+    uy_noisy = uy + normrnd(0.4,0.01);
+    r_noisy = r + normrnd(0.2,0.01);
     
 end

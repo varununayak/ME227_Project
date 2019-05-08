@@ -55,8 +55,11 @@ for i = 1:Num
 end
 
 figure();
+
+
 subplot(4,1,1);
 plot(ux_store,K_1);
+title("LQR Gain vs U_x");
 
 ylim([-20 20])
 subplot(4,1,2);
@@ -70,5 +73,8 @@ ylim([-20 20])
 subplot(4,1,4);
 plot(ux_store,K_4);
 ylim([-20 20])
+
+xlabel("U_x [m/s]");
+
 
 save('lqr_gains.mat','K_lqr_store')
