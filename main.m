@@ -7,9 +7,9 @@ clear all; clc; close all;
 
 %CHOOSE LATERAL CONTROLLER HERE
  %Mode = 1; % lookahead feedback only
- Mode = 2; %lookahead feedback + feedforward
+ %Mode = 2; %lookahead feedback + feedforward
  %Mode = 3; % PID 
-%Mode = 4; % Extended LQR
+Mode = 4; % Extended LQR
  
  process_noise = true;
  sensor_noise = true;

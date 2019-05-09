@@ -157,20 +157,8 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
 
     function K_lqr = get_K_lqr()
        
-        A = [0 1 0 0;...
-            0 -(Caf_lin+Car_lin)/m/ux (Caf_lin+Car_lin)/m (-a*Caf_lin+b*Car_lin)/m/ux;...
-            0 0 0 1;...
-            0 (b*Car_lin - a*Caf_lin)/m/Iz (a*Caf_lin-b*Car_lin)/Iz -(a^2*Caf_lin + b^2*Car_lin)/Iz/ux];
-        B = ones(4,1);
+        K_lqr = [1 ux/20 ux/10 ux/100]; %mean LQR
         
-        Q = diag([1 10 1 10]);
-        R = 1;
-        N = 0;
-        
-        A(isinf(A)) = 10000;
-        A(isnan(A)) = 0;
-        %K_lqr = [1 0.8 2.12 0.1]; %mean LQR
-        K_lqr = [1 0*ux/20 ux/10 0*ux/40];    %extended LQR
         
     end
 
