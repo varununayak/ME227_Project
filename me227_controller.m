@@ -34,8 +34,8 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
 
     % Define your controller parameters here:
     %lookahead controller (feedback only)
-    K_la = 3500; %default is 3500
-    x_la = 18; %default 15
+    K_la = 4000; %default is 3500
+    x_la = 15; %default 15
 
     %drive (longitudinal) controller gain
     K_drive = 1500; %default is 1890
@@ -56,7 +56,7 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
 
     Kp_e = 0.07;
     Kp_dpsi = 0.3;
-    Kd_e = 0.2; Kd_dpsi = 0.1;
+    Kd_e = 0.05; Kd_dpsi = 0.01;
     Ki_e = 0.2; Ki_dpsi = 0.0;
 
     dt = 0.005; %controller operates at 200Hz
@@ -170,7 +170,7 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
         A(isinf(A)) = 10000;
         A(isnan(A)) = 0;
         %K_lqr = [1 0.8 2.12 0.1]; %mean LQR
-        K_lqr = [0.5 ux/30 ux/20 ux/80];    %extended LQR
+        K_lqr = [1 0*ux/20 ux/10 0*ux/40];    %extended LQR
         
     end
 
