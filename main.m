@@ -7,11 +7,13 @@ clear all; clc; close all;
 
 %CHOOSE LATERAL CONTROLLER HERE
  %Mode = 1; % lookahead feedback only
- %Mode = 2; %lookahead feedback + feedforward
+Mode = 2; %lookahead feedback + feedforward
  %Mode = 3; % PID 
-Mode = 4; % Extended LQR
+ %Mode = 4; %LQR
+ %Mode = 5; %lookahead with Integral
  
- process_noise = true;
+ just_want_data = true;
+ process_noise = false;
  sensor_noise = true;
  parameter_errors = false; %imports setupniki2 instead
  use_straight_path = false;
@@ -32,10 +34,8 @@ end
 
 %load desired speed and acceleration info
 load('desired.mat');
-path.UxDes = Ux_des;
-path.axDes = ax_des;
-
-
+path.UxDes = smooth(Ux_des,30);
+path.axDes = smooth(ax_des,20);
 
 g = 9.81;                   	% gravity acceleration, meters/sec^2
 
@@ -61,10 +61,16 @@ s_m         = zeros(N,1);
 e_m        = zeros(N,1);
 delta_rad   = zeros(N,1);
 
+%for Force as a state
+Fx_N = zeros(N,1);
+
+%for low pass filter
+%Fx_prev = zeros(N,1);
+
 ux_des_plot = zeros(N,1);
 
 delta_plot = zeros(N,1);
-Fx_plot = zeros(N,1);
+Fx_des_plot = zeros(N,1);
 
 
 % set initial conditions
@@ -86,6 +92,7 @@ for idx = 1:N
     dpsi = dpsi_rad(idx);
     s = s_m(idx);
     e = e_m(idx);
+    Fx = Fx_N(idx);
 
     ux_des_plot(idx) = interp1(path.s_m, path.UxDes, s);
 
@@ -95,19 +102,22 @@ for idx = 1:N
     %noisy sensor model option;
     if (sensor_noise)
         [ s_noisy, e_noisy, dpsi_noisy, ux_noisy, uy_noisy, r_noisy ] = add_sensor_noise( s, e, dpsi, ux, uy, r);
-        [ delta, Fx ] = me227_controller( s_noisy, e_noisy, dpsi_noisy, ux_noisy, uy_noisy, r_noisy, Mode, path);
+        [ delta, Fx_des ] = me227_controller( s_noisy, e_noisy, dpsi_noisy, ux_noisy, uy_noisy, r_noisy, Mode, path);
     else
-        [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path);
+        [ delta, Fx_des ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path);
     end
     
     delta_plot(idx) = delta;
-    Fx_plot(idx) = Fx;
+    Fx_des_plot(idx) = Fx_des;
     
     %Calculate the Dynamics with the Nonlinear Bike Model
-    [ r_dot, uy_dot, ux_dot, s_dot, e_dot, dpsi_dot] = ...
-            nonlinear_bicycle_model( r, uy, ux, dpsi, e, delta, Fx, K, veh, tire_f, tire_r, process_noise, parameter_errors  );
+    [ r_dot, uy_dot, ux_dot, s_dot, e_dot, dpsi_dot, Fx_dot] = ...
+            nonlinear_bicycle_model( r, uy, ux, dpsi, e, delta, Fx, K, veh, tire_f, tire_r, process_noise,...
+            parameter_errors, Fx_des );
         
-            
+     %for low pass
+    %Fx_prev(idx) = Fx;
+    
     % only update next state if we are not at end of simulation
     delta_rad(idx) = delta;
     if idx < N
@@ -118,6 +128,7 @@ for idx = 1:N
         dpsi_rad(idx+1) = dpsi_rad(idx) + dt*dpsi_dot;
         s_m(idx+1) = s_m(idx) + dt*s_dot;
         e_m(idx+1) = e_m(idx) + dt*e_dot;
+        Fx_N(idx+1) = Fx_N(idx) + Fx_dot*dt;
         
                      
             
@@ -199,16 +210,39 @@ subplot(2,1,1);
 plot(t_s, delta_plot);
 title("Steering Angle \delta");
 subplot(2,1,2);
-plot(t_s, Fx_plot);
-title("Tractive Force F_x");
+plot(t_s, Fx_des_plot);
+title("Tractive Force F_x")
 
-% Animation
-path.s = path.s_m;
-path.k = path.k_1pm;
-path.posE = path.posE_m;
-path.posN = path.posN_m;
-path.psi = path.psi_rad;
-animate(path, veh, dpsi_rad, s_m, e_m, delta_rad)
+
+
+
+
+if(just_want_data)
+    Fxcmd_N_sim = Fx_des_plot;
+    Ux_mps_sim = ux_mps;
+    Uy_mps_sim = uy_mps;
+    Ux_des = ux_des_plot;
+    e_m_sim = e_m;
+    dpsi_rad_sim = dpsi_rad;
+    ay_mps2_sim = ay;
+    t_sim = t_s;
+    r_radps_sim = r_radps;
+    delta_rad_sim = delta_rad;
+    s_m_sim = s_m;
+    Fx_N_sim = Fx_N;
+    
+    save('simulation_results_lookahead','Fxcmd_N_sim','Ux_mps_sim','Uy_mps_sim',...
+   'Ux_des','e_m_sim','dpsi_rad_sim','ay_mps2_sim','t_sim','r_radps_sim','delta_rad_sim','s_m_sim','Fx_N_sim')
+    close all;clc;
+else
+    % Animation
+    path.s = path.s_m;
+    path.k = path.k_1pm;
+    path.posE = path.posE_m;
+    path.posN = path.posN_m;
+    path.psi = path.psi_rad;
+    animate(path, veh, dpsi_rad, s_m, e_m, delta_rad)
+end
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -234,8 +268,9 @@ function Fy = fiala_model(alpha, tire)
 end
 
 %Calculate the Nonlinear Bicycle Model Dynamics
-function [ r_dot, Uy_dot, Ux_dot, s_dot, e_dot, dpsi_dot] = ...
-    nonlinear_bicycle_model( r, Uy, Ux, dpsi, e, delta, Fx, K, veh, tire_f, tire_r, process_noise ,parameter_errors )
+function [ r_dot, Uy_dot, Ux_dot, s_dot, e_dot, dpsi_dot, Fx_dot] = ...
+    nonlinear_bicycle_model( r, Uy, Ux, dpsi, e, delta, Fx, K, veh, tire_f, tire_r, process_noise ,...
+    parameter_errors, Fx_des )
 %KINEMATIC_MODEL
 %   Calculate state derivatives for the kinematic vehicle model
 
@@ -254,6 +289,24 @@ g = 9.81;
     Fyf = fiala_model(alpha_f, tire_f);
     Fyr = fiala_model(alpha_r, tire_r);
 %Split longitudinal force based on drive and brakedistribution
+
+% dt = 0.005;
+% Tau = 0.01;
+% Fx_dot = (Fx_des - Fx)/dt;
+
+Fx_dot = 0;
+%Fx = Fx_des;
+
+if(Fx_des >0)
+    filt = 0.82;
+else
+    filt = 1.2;
+end
+    Fx = filt*Fx_des + (1-filt)*Fx; 
+
+%low pass
+%Fx = Fx_prev + 1*(Fx - Fx_prev);
+
 if Fx > 0
     Fxf = Fx;   %because the GTI is a front wheel drive car
     Fxr = 0;
@@ -261,6 +314,7 @@ else
     Fxf = Fx/2;
     Fxr = Fx/2; %equally distributed brake force
 end
+
 
 % dynamics
 Ux_dot = ( Fxr + Fxf*cos(delta) - Fyf*sin(delta) + veh.m*Uy*r )/veh.m;
@@ -279,7 +333,6 @@ if(process_noise)
     dpsi_dot = dpsi_dot + normrnd(0,0.01);
 end
 
-%%%%% END STUDENT CODE %%%%%
 end
 
 %Calculate the Slip Angles Here:
@@ -287,10 +340,8 @@ function [alpha_f, alpha_r] = slip_angles( r, Uy, Ux, delta, veh)
 %slip_angles
 %   calculate the tire slip angles 
 
-%%%%% STUDENT CODE HERE %%%%%
     alpha_f = atan2(Uy+veh.a*r, Ux) - delta ;
     alpha_r = atan2(Uy-veh.b*r,Ux);
-%%%%% END STUDENT CODE %%%%%
 end
 
 %Use standard Euler Integration
@@ -298,19 +349,17 @@ function x1 = integrate_euler( x0, x0_dot, dt )
 %INTEGRATE_EULER
 %   simple zero-hold integration scheme to compute discrete next state
 
-%%%%% STUDENT CODE HERE %%%%%
     x1  = x0 + x0_dot*dt;
-%%%%% END STUDENT CODE %%%%%
 end
 
 %adds gaussian white noise to the state variables
 function [ s_noisy, e_noisy, dpsi_noisy, ux_noisy, uy_noisy, r_noisy ] = add_sensor_noise( s, e, dpsi, ux, uy, r)
     
     s_noisy = s;
-    e_noisy = e + normrnd(0.00,0.01);
-    dpsi_noisy = dpsi + normrnd(0.00,0.01);
-    ux_noisy = ux + normrnd(0,0.01);
-    uy_noisy = uy + normrnd(0,0.01);
-    r_noisy = r + normrnd(0,0.01);
+    e_noisy = e + normrnd(0.00,0.0001);
+    dpsi_noisy = dpsi + normrnd(0.00,0.0001);
+    ux_noisy = ux + normrnd(0,0.0001);
+    uy_noisy = uy + normrnd(0,0.0001);
+    r_noisy = r + normrnd(0,0.0001);
     
 end

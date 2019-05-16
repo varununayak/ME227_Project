@@ -11,8 +11,8 @@ Iz = 2763.49;
 
 
 
-Num = 200;
-K_lqr_store = cell(N,1)
+Num = 5;
+K_lqr_store = cell(Num,1)
 
 ux_store = linspace(0,20,Num);
 
@@ -21,9 +21,11 @@ K_2 = zeros(Num,1);
 K_3 = zeros(Num,1);
 K_4 = zeros(Num,1);
 
+figure()
+hold on;
 for i = 1:Num
     
-    ux = ux_store(i)
+    ux = ux_store(i);
     
     A = [0 1 0 0;...
         0 -(Caf_lin+Car_lin)/m/ux (Caf_lin+Car_lin)/m (-a*Caf_lin+b*Car_lin)/m/ux;...
@@ -31,8 +33,8 @@ for i = 1:Num
         0 (b*Car_lin - a*Caf_lin)/m/Iz (a*Caf_lin-b*Car_lin)/Iz -(a^2*Caf_lin + b^2*Car_lin)/Iz/ux];
     B = ones(4,1);
 
-    Q = diag([10 10 0.1 1]);
-    R = 1;
+    Q = diag([10  1 1 0.1]);
+    R = 10;
     N = 0;
 
     A(isinf(A)) = 10000;
@@ -46,7 +48,15 @@ for i = 1:Num
     K_3(i)  = K_lqr(3);
     K_4(i)  = K_lqr(4);
     
+    B = K_lqr';
+    C = eye(4);
+    D = zeros(4,1);
+    sys = ss(A,B,C,D);
+    pzmap(sys);
+    
 end
+
+legend();
 
 figure();
 

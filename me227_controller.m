@@ -11,12 +11,7 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     % For the project you wil use this same input output structure and in this
     % homework you will use this control structure for defining the control
     % inputs in your simulation. 
-    
-    if(s<0 || isnan(s)) %remove this for actual car
-        s = 0;
-    end
-
-    % Define your vehicle parameters here (you must define all of your
+     % Define your vehicle parameters here (you must define all of your
     % parameters here, you may not reference and outside function in order to 
     % function on the GTI)
     Caf_lin = 80000;
@@ -46,18 +41,22 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     g = 9.81;
 
     %PID Control Terms
-    persistent e_prev; e_prev = 0;
-    persistent dpsi_prev; dpsi_prev = 0;
-    persistent e_integrated; e_integrated = 0;
-    persistent dpsi_integrated; dpsi_integrated = 0;
+    persistent e_prev ;
+    persistent dpsi_prev;
+    persistent e_integrated;
+    persistent dpsi_integrated;
     
-    %persistent delta_prev; delta_prev = 0; %remove low pass
-    persistent Fx_prev; Fx_prev = 0;
-
-    Kp_e = 0.07;
+    if(isempty(e_prev))
+        e_prev = 0;
+        dpsi_prev = 0;
+        e_integrated = 0;
+        dpsi_integrated = 0;
+    end
+    
+    Kp_e = 0.27;
     Kp_dpsi = 0.3;
     Kd_e = 0.05; Kd_dpsi = 0.01;
-    Ki_e = 0.2; Ki_dpsi = 0.0;
+    Ki_e = 0.00; Ki_dpsi = 0.0;
 
     dt = 0.005; %controller operates at 200Hz
     
@@ -74,8 +73,9 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     %find derivative
     %e_deriv = (e - e_prev)/dt; %numerical derivative
     e_deriv = ux*sin(dpsi) + uy*cos(dpsi); %using model
-    s_dot = (1/1-e*K)*(ux*cos(dpsi) - uy*sin(dpsi));
+    
     %dpsi_deriv = (dpsi-dpsi_prev)/dt; %using numerical derivative
+    s_dot = (1/1-e*K)*(ux*cos(dpsi) - uy*sin(dpsi));
     dpsi_deriv = r - K*s_dot; %using model
 
     %%%%%----------START STUDENT CODE----------%%%%%%
@@ -86,21 +86,24 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
         delta = -K_la*(e + x_la*dpsi)/Caf_lin;
 
     elseif Mode == 2
-        dpsi_ss = K*(m*a*ux^2/L/Car_lin-b);
-        deltaff = K_la*x_la/Caf_lin*dpsi_ss + K*(L+K_steer*ux^2);
-        delta = -K_la*(e + x_la*dpsi)/Caf_lin + deltaff;
+       
+        dpsi_ss = K*(m*a*ux^2/L/(Car_lin)-b);
+        deltaff = K_la*x_la/(Caf_lin)*dpsi_ss + K*(L+K_steer*ux^2);
+        delta = -K_la*(e + x_la*dpsi)/(Caf_lin) + deltaff;
 
-    elseif Mode == 3
-
-        
+    elseif Mode == 3        
         %sum of errors (integral term)
         e_integrated = e_integrated + e;
         dpsi_integrated = dpsi_integrated + dpsi;
     
         %anti-windup
-        e_integrated = sat(e_integrated,15);
-        dpsi_integrated = sat(dpsi_integrated,5);
-
+        if(abs(e_integrated) > 15)
+            e_integrated = 15*sign(e_integrated);
+        end
+        if(abs(dpsi_integrated) > 3)
+            dpsi_integrated = 3*sign(dpsi_integrated);
+        end
+        
         %feedforward
         dpsi_ss = K*(m*a*ux^2/L/Car_lin-b);
         deltaff = K_la*x_la/Caf_lin*dpsi_ss + K*(L+K_steer*ux^2);
@@ -113,18 +116,38 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
         %store as previous value before going into next call
         e_prev = e;
         dpsi_prev = dpsi;
-        
-    else %LQR
+    elseif Mode ==4
         x_lqr = [e;e_deriv;dpsi;dpsi_deriv];
-        K_lqr = get_K_lqr();
+        K_lqr = [2.0 ux/30 ux/3 ux/50];
         delta = -K_lqr*x_lqr;
+     
+    else
+        dpsi_ss = K*(m*a*ux^2/L/(Car_lin)-b);
+        deltaff = K_la*x_la/(Caf_lin)*dpsi_ss + K*(L+K_steer*ux^2);
+        delta = -K_la*(e + x_la*dpsi)/(Caf_lin) + deltaff;
+        
+        %sum of errors (integral term)
+        e_integrated = e_integrated + e;
+        dpsi_integrated = dpsi_integrated + dpsi;
+    
+        %anti-windup
+        if(abs(e_integrated) > 15)
+            e_integrated = 15*sign(e_integrated);
+        end
+        if(abs(dpsi_integrated) > 3)
+            dpsi_integrated = 3*sign(dpsi_integrated);
+        end
+              
+        
+        delta_i =   - [Ki_e Ki_dpsi]*[e_integrated;dpsi_integrated];
+        delta = delta + delta_i 
+
+        %store as previous value before going into next call
+        e_prev = e;
+        dpsi_prev = dpsi;
         
     end
 
-    %put low pass on delta - (REMOVED)
-    %low_pass = [0.7 0.96 0.8 0.02];
-    %delta = delta_prev + low_pass(Mode)*( delta - delta_prev ); %low pass
-    %delta_prev = delta;
     
     % Use the Longitudinal Control Law to Calcuate Fx
 
@@ -132,8 +155,13 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
   
         
     %saturate the control inputs takes care of Inf
-    Fx = sat(Fx,Fx_MAX);
-    delta = sat(delta,delta_MAX);
+    if(abs(Fx)>Fx_MAX)
+            Fx = Fx_MAX*sign(Fx);
+    end
+    
+    if(abs(delta)>delta_MAX)
+        delta = delta_MAX*sign(delta);
+    end
     
     %isnan check
     if(isnan(delta))
@@ -144,25 +172,7 @@ function [ delta, Fx ] = me227_controller( s, e, dpsi, ux, uy, r, Mode, path)
     end
 
     
-   %%%%%%%%% HELPER FUNCTIONS %%%%%%%%%%%%
-   
-    %saturationg function
-    function y = sat(x,c)
-        if(abs(x)>c)
-            y = c*sign(x);
-        else
-            y = x;
-        end
-    end
-
-    function K_lqr = get_K_lqr()
-       
-        K_lqr = [1 ux/20 ux/10 ux/100]; %mean LQR
-        
-        
-    end
-
-
+  
 %%%%%----------END STUDENT CODE----------%%%%%%
 end
 
